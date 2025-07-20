@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import React from 'react'
+import MarkdownRendererExample from './components/MarkdownRendererExample'
 
 interface CourseModule {
   filename: string
@@ -188,83 +190,75 @@ export default function CoursePage() {
     switch (stage) {
       case 'starting':
       case 'structure':
-        return 'bg-blue-500'
+        return 'from-blue-500 to-blue-600'
       case 'keywords':
-        return 'bg-purple-500'
+        return 'from-purple-500 to-purple-600'
       case 'media':
-        return 'bg-green-500'
+        return 'from-green-500 to-green-600'
       case 'content':
-        return 'bg-yellow-500'
+        return 'from-yellow-500 to-yellow-600'
       case 'enhancement':
-        return 'bg-orange-500'
+        return 'from-orange-500 to-orange-600'
       case 'complete':
-        return 'bg-green-600'
+        return 'from-emerald-500 to-emerald-600'
       case 'error':
-        return 'bg-red-500'
+        return 'from-red-500 to-red-600'
       default:
-        return 'bg-gray-500'
+        return 'from-gray-500 to-gray-600'
     }
   }
 
-  const formatContent = (content: string) => {
-    // Split content into lines and format for display
-    const lines = content.split('\n')
-    return lines.map((line, index) => {
-      if (line.startsWith('# ')) {
-        return <h1 key={index} className="text-2xl font-bold mt-6 mb-4 text-gray-800">{line.replace('# ', '')}</h1>
-      } else if (line.startsWith('## ')) {
-        return <h2 key={index} className="text-xl font-semibold mt-5 mb-3 text-gray-700">{line.replace('## ', '')}</h2>
-      } else if (line.startsWith('### ')) {
-        return <h3 key={index} className="text-lg font-medium mt-4 mb-2 text-gray-600">{line.replace('### ', '')}</h3>
-      } else if (line.startsWith('![')) {
-        const match = line.match(/!\[([^\]]*)\]\(([^)]+)\)/)
-        if (match) {
-          return (
-            <img 
-              key={index} 
-              src={match[2]} 
-              alt={match[1]} 
-              className="max-w-full h-auto my-4 rounded-lg border"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement
-                target.style.display = 'none'
-              }}
-            />
-          )
-        }
-      } else if (line.startsWith('[') && line.includes('](')) {
-        const match = line.match(/\[([^\]]+)\]\(([^)]+)\)/)
-        if (match) {
-          return (
-            <a 
-              key={index} 
-              href={match[2]} 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="text-blue-600 hover:underline block my-2"
-            >
-              {match[1]}
-            </a>
-          )
-        }
-      } else if (line.trim() && !line.startsWith('#')) {
-        return <p key={index} className="mb-3 text-gray-700 leading-relaxed">{line}</p>
-      }
-      return null
-    }).filter(Boolean)
+  const getStageIcon = (stage: string) => {
+    switch (stage) {
+      case 'starting':
+      case 'structure':
+        return '🚀'
+      case 'keywords':
+        return '🔍'
+      case 'media':
+        return '🎬'
+      case 'content':
+        return '✍️'
+      case 'enhancement':
+        return '✨'
+      case 'complete':
+        return '✅'
+      case 'error':
+        return '❌'
+      default:
+        return '⚡'
+    }
   }
 
   const clearError = () => setError(null)
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-black">
+      {/* Animated background */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl animate-pulse delay-500"></div>
+      </div>
+
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+      <div className="relative z-10 glass border-b border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <h1 className="text-2xl font-bold text-gray-900">Course Creator</h1>
-            <div className="text-sm text-gray-500">
-              AI-Powered Course Generation
+          <div className="flex justify-between items-center h-20">
+            <div className="flex items-center space-x-4">
+              <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center">
+                <span className="text-white font-bold text-xl">🎓</span>
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                  Course Creator
+                </h1>
+                <p className="text-sm text-gray-400">AI-Powered Course Generation</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2 text-sm text-gray-400">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span>System Online</span>
             </div>
           </div>
         </div>
@@ -272,54 +266,50 @@ export default function CoursePage() {
 
       {/* Error Banner */}
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 relative">
-          <span className="block sm:inline">{error}</span>
-          <button
-            onClick={clearError}
-            className="absolute top-0 bottom-0 right-0 px-4 py-3"
-          >
-            <span className="sr-only">Close</span>
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+        <div className="relative z-10 bg-gradient-to-r from-red-500/20 to-red-600/20 border border-red-500/30 backdrop-blur-sm">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
+                  <span className="text-white text-sm">!</span>
+                </div>
+                <span className="text-red-200">{error}</span>
+              </div>
+              <button
+                onClick={clearError}
+                className="text-red-300 hover:text-red-100 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Tab Navigation */}
         <div className="mb-8">
-          <nav className="flex space-x-8">
-            <button
-              onClick={() => setActiveTab('create')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'create'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Create Course
-            </button>
-            <button
-              onClick={() => setActiveTab('modules')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'modules'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Current Modules ({modules.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('courses')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'courses'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              All Courses ({courses.length})
-            </button>
+          <nav className="flex space-x-1 bg-gray-900/50 p-1 rounded-xl backdrop-blur-sm border border-gray-800">
+            {[
+              { id: 'create', label: 'Create Course', icon: '🚀' },
+              { id: 'modules', label: `Current Modules (${modules.length})`, icon: '📚' },
+              { id: 'courses', label: `All Courses (${courses.length})`, icon: '🎓' }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex items-center space-x-2 px-6 py-3 rounded-lg font-medium text-sm transition-all duration-200 ${
+                  activeTab === tab.id
+                    ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                }`}
+              >
+                <span>{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            ))}
           </nav>
         </div>
 
@@ -327,12 +317,17 @@ export default function CoursePage() {
         {activeTab === 'create' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Course Creation Form */}
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h2 className="text-lg font-semibold mb-4">Create New Course</h2>
+            <div className="glass rounded-2xl p-8 hover-lift">
+              <div className="flex items-center space-x-3 mb-6">
+                <div className="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center">
+                  <span className="text-white text-sm">✨</span>
+                </div>
+                <h2 className="text-xl font-semibold text-white">Create New Course</h2>
+              </div>
               
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-300 mb-3">
                     Course Topic
                   </label>
                   <input
@@ -340,14 +335,14 @@ export default function CoursePage() {
                     value={topic}
                     onChange={(e) => setTopic(e.target.value)}
                     placeholder="Enter course topic..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all backdrop-blur-sm"
                     disabled={isCreating}
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-300 mb-3">
                       Images per Module
                     </label>
                     <input
@@ -356,12 +351,12 @@ export default function CoursePage() {
                       onChange={(e) => setImagesPerModule(Number(e.target.value))}
                       min="1"
                       max="5"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all backdrop-blur-sm"
                       disabled={isCreating}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-300 mb-3">
                       Videos per Module
                     </label>
                     <input
@@ -370,24 +365,31 @@ export default function CoursePage() {
                       onChange={(e) => setVideosPerModule(Number(e.target.value))}
                       min="1"
                       max="5"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all backdrop-blur-sm"
                       disabled={isCreating}
                     />
                   </div>
                 </div>
 
-                <div className="flex space-x-2">
+                <div className="flex space-x-3">
                   <button
                     onClick={startCourseCreation}
                     disabled={isCreating || !topic.trim()}
-                    className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                    className="flex-1 gradient-primary text-white py-3 px-6 rounded-xl font-medium hover:shadow-lg hover:shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105 disabled:hover:scale-100"
                   >
-                    {isCreating ? 'Creating...' : 'Create Course'}
+                    {isCreating ? (
+                      <span className="flex items-center justify-center space-x-2">
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        <span>Creating...</span>
+                      </span>
+                    ) : (
+                      'Create Course'
+                    )}
                   </button>
                   {isCreating && (
                     <button
                       onClick={stopCourseCreation}
-                      className="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition-colors"
+                      className="bg-red-600 hover:bg-red-700 text-white py-3 px-6 rounded-xl font-medium transition-all duration-200 transform hover:scale-105"
                     >
                       Stop
                     </button>
@@ -397,25 +399,40 @@ export default function CoursePage() {
             </div>
 
             {/* Progress Section */}
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h3 className="text-lg font-semibold mb-4">Creation Progress</h3>
+            <div className="glass rounded-2xl p-8 hover-lift">
+              <div className="flex items-center space-x-3 mb-6">
+                <div className="w-8 h-8 gradient-secondary rounded-lg flex items-center justify-center">
+                  <span className="text-white text-sm">📊</span>
+                </div>
+                <h3 className="text-xl font-semibold text-white">Creation Progress</h3>
+              </div>
               
               {isCreating && progress && (
-                <div className="space-y-4">
-                  <div className="space-y-2">
+                <div className="space-y-6">
+                  <div className="space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600 capitalize font-medium">{progress.stage.replace('_', ' ')}</span>
-                      <span className="text-sm font-bold">{progress.progress}%</span>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-2xl">{getStageIcon(progress.stage)}</span>
+                        <span className="text-gray-300 capitalize font-medium">
+                          {progress.stage.replace('_', ' ')}
+                        </span>
+                      </div>
+                      <span className="text-white font-bold text-lg">{progress.progress}%</span>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-3">
+                    <div className="w-full bg-gray-800 rounded-full h-3 overflow-hidden">
                       <div
-                        className={`h-3 rounded-full transition-all duration-500 ease-out ${getProgressColor(progress.stage)}`}
+                        className={`h-3 rounded-full bg-gradient-to-r ${getProgressColor(progress.stage)} progress-bar transition-all duration-500 ease-out`}
                         style={{ width: `${progress.progress}%` }}
                       />
                     </div>
                     {progress.current_module && progress.total_modules && (
-                      <div className="text-sm text-gray-600 font-medium">
-                        Module {progress.current_module} of {progress.total_modules}
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-400">
+                          Module {progress.current_module} of {progress.total_modules}
+                        </span>
+                        <span className="text-blue-400 font-medium">
+                          {Math.round((progress.current_module / progress.total_modules) * 100)}% Complete
+                        </span>
                       </div>
                     )}
                   </div>
@@ -423,26 +440,34 @@ export default function CoursePage() {
               )}
 
               {/* Progress Messages */}
-              <div className="mt-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Progress Log</h4>
+              <div className="mt-6">
+                <h4 className="text-sm font-medium text-gray-300 mb-3 flex items-center space-x-2">
+                  <span>📝</span>
+                  <span>Progress Log</span>
+                </h4>
                 <div 
                   ref={progressRef}
-                  className="bg-gray-50 rounded-md p-3 h-64 overflow-y-auto border"
+                  className="bg-gray-900/30 rounded-xl p-4 h-64 overflow-y-auto border border-gray-800 backdrop-blur-sm"
                 >
                   {progressMessages.length === 0 ? (
-                    <div className="text-sm text-gray-500 italic">
-                      {isCreating ? 'Waiting for updates...' : 'No active course creation'}
+                    <div className="flex items-center justify-center h-full text-gray-500 italic">
+                      <div className="text-center">
+                        <div className="text-3xl mb-2">⏳</div>
+                        <div>{isCreating ? 'Waiting for updates...' : 'No active course creation'}</div>
+                      </div>
                     </div>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       {progressMessages.map((msg, index) => (
-                        <div key={index} className="text-sm">
-                          <div className="flex items-center space-x-2">
-                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${getProgressColor(msg.stage)}`} />
-                            <span className="text-gray-700">{msg.message}</span>
-                          </div>
-                          <div className="text-xs text-gray-500 ml-4">
-                            {new Date(msg.timestamp * 1000).toLocaleTimeString()}
+                        <div key={index} className="group">
+                          <div className="flex items-start space-x-3">
+                            <div className={`w-3 h-3 rounded-full flex-shrink-0 mt-1 bg-gradient-to-r ${getProgressColor(msg.stage)}`} />
+                            <div className="flex-1">
+                              <div className="text-gray-300 text-sm">{msg.message}</div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                {new Date(msg.timestamp * 1000).toLocaleTimeString()}
+                              </div>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -457,34 +482,42 @@ export default function CoursePage() {
         {activeTab === 'modules' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Module List */}
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h2 className="text-lg font-semibold mb-4">Current Session Modules</h2>
+            <div className="glass rounded-2xl p-8 hover-lift">
+              <div className="flex items-center space-x-3 mb-6">
+                <div className="w-8 h-8 gradient-accent rounded-lg flex items-center justify-center">
+                  <span className="text-white text-sm">📚</span>
+                </div>
+                <h2 className="text-xl font-semibold text-white">Current Session Modules</h2>
+              </div>
               
               {modules.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <p>No modules available</p>
-                  <p className="text-sm mt-2">Create a new course to see modules here</p>
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">📖</div>
+                  <p className="text-gray-400 text-lg mb-2">No modules available</p>
+                  <p className="text-gray-500 text-sm">Create a new course to see modules here</p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {modules.map((module) => (
                     <div
                       key={module.filename}
-                      className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                      className="bg-gray-900/30 border border-gray-700 rounded-xl p-5 hover:bg-gray-800/50 cursor-pointer transition-all duration-200 hover:border-blue-500/50 hover-lift group"
                       onClick={() => setSelectedModule(module)}
                     >
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
-                          <h3 className="font-medium text-gray-900">{module.title}</h3>
-                          <p className="text-sm text-gray-600 mt-1">{module.filename}</p>
+                          <h3 className="font-medium text-white group-hover:text-blue-300 transition-colors">
+                            {module.title}
+                          </h3>
+                          <p className="text-sm text-gray-500 mt-1 font-mono">{module.filename}</p>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                          <span className="text-xs bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full border border-blue-500/30">
                             Module {module.module_number}
                           </span>
                           {module.enhanced && (
-                            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                              Enhanced
+                            <span className="text-xs bg-green-500/20 text-green-300 px-3 py-1 rounded-full border border-green-500/30">
+                              ✨ Enhanced
                             </span>
                           )}
                         </div>
@@ -496,23 +529,31 @@ export default function CoursePage() {
             </div>
 
             {/* Module Content */}
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h2 className="text-lg font-semibold mb-4">Module Content</h2>
+            <div className="glass rounded-2xl p-8 hover-lift">
+              <div className="flex items-center space-x-3 mb-6">
+                <div className="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center">
+                  <span className="text-white text-sm">📄</span>
+                </div>
+                <h2 className="text-xl font-semibold text-white">Module Content</h2>
+              </div>
               
               {selectedModule ? (
-                <div className="space-y-4">
-                  <div className="border-b pb-4">
-                    <h3 className="text-xl font-bold text-gray-900">{selectedModule.title}</h3>
-                    <p className="text-sm text-gray-600 mt-1">{selectedModule.filename}</p>
+                <div className="space-y-6">
+                  <div className="border-b border-gray-700 pb-4">
+                    <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                      {selectedModule.title}
+                    </h3>
+                    <p className="text-sm text-gray-500 mt-2 font-mono">{selectedModule.filename}</p>
                   </div>
                   
-                  <div className="max-h-96 overflow-y-auto prose prose-sm max-w-none">
-                    {formatContent(selectedModule.content)}
+                  <div className="max-h-96 overflow-y-auto prose prose-invert prose-sm max-w-none">
+                    <MarkdownRendererExample content={selectedModule.content} />
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <p>Select a module to view its content</p>
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">👆</div>
+                  <p className="text-gray-400">Select a module to view its content</p>
                 </div>
               )}
             </div>
@@ -522,28 +563,36 @@ export default function CoursePage() {
         {activeTab === 'courses' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Course List */}
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h2 className="text-lg font-semibold mb-4">All Courses</h2>
+            <div className="glass rounded-2xl p-8 hover-lift">
+              <div className="flex items-center space-x-3 mb-6">
+                <div className="w-8 h-8 gradient-secondary rounded-lg flex items-center justify-center">
+                  <span className="text-white text-sm">🎓</span>
+                </div>
+                <h2 className="text-xl font-semibold text-white">All Courses</h2>
+              </div>
               
               {courses.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <p>No courses available</p>
-                  <p className="text-sm mt-2">Create your first course to get started</p>
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">🚀</div>
+                  <p className="text-gray-400 text-lg mb-2">No courses available</p>
+                  <p className="text-gray-500 text-sm">Create your first course to get started</p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {courses.map((course) => (
                     <div
                       key={course.filename}
-                      className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                      className="bg-gray-900/30 border border-gray-700 rounded-xl p-5 hover:bg-gray-800/50 cursor-pointer transition-all duration-200 hover:border-purple-500/50 hover-lift group"
                       onClick={() => loadExistingCourse(course.filename)}
                     >
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
-                          <h3 className="font-medium text-gray-900">{course.title}</h3>
-                          <p className="text-sm text-gray-600 mt-1">{course.filename}</p>
+                          <h3 className="font-medium text-white group-hover:text-purple-300 transition-colors">
+                            {course.title}
+                          </h3>
+                          <p className="text-sm text-gray-500 mt-1 font-mono">{course.filename}</p>
                         </div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-gray-500 bg-gray-800/50 px-3 py-1 rounded-full">
                           {course.created_at ? new Date(course.created_at * 1000).toLocaleDateString() : 'Unknown date'}
                         </div>
                       </div>
@@ -554,23 +603,31 @@ export default function CoursePage() {
             </div>
 
             {/* Course Content */}
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h2 className="text-lg font-semibold mb-4">Course Content</h2>
+            <div className="glass rounded-2xl p-8 hover-lift">
+              <div className="flex items-center space-x-3 mb-6">
+                <div className="w-8 h-8 gradient-accent rounded-lg flex items-center justify-center">
+                  <span className="text-white text-sm">📖</span>
+                </div>
+                <h2 className="text-xl font-semibold text-white">Course Content</h2>
+              </div>
               
               {selectedModule ? (
-                <div className="space-y-4">
-                  <div className="border-b pb-4">
-                    <h3 className="text-xl font-bold text-gray-900">{selectedModule.title}</h3>
-                    <p className="text-sm text-gray-600 mt-1">{selectedModule.filename}</p>
+                <div className="space-y-6">
+                  <div className="border-b border-gray-700 pb-4">
+                    <h3 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+                      {selectedModule.title}
+                    </h3>
+                    <p className="text-sm text-gray-500 mt-2 font-mono">{selectedModule.filename}</p>
                   </div>
                   
-                  <div className="max-h-96 overflow-y-auto prose prose-sm max-w-none">
-                    {formatContent(selectedModule.content)}
+                  <div className="max-h-96 overflow-y-auto prose prose-invert prose-sm max-w-none">
+                    <MarkdownRendererExample content={selectedModule.content} />
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <p>Select a course to view its content</p>
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">👆</div>
+                  <p className="text-gray-400">Select a course to view its content</p>
                 </div>
               )}
             </div>
