@@ -1,639 +1,319 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import React from 'react'
-import MarkdownRendererExample from './components/MarkdownRendererExample'
+import Link from 'next/link'
+import { Sparkles, Layers, ChevronRight, CheckCircle } from 'lucide-react'
 
-interface CourseModule {
-  filename: string
-  title: string
-  content: string
-  module_number: number
-  enhanced?: boolean
-  created_at?: number
-}
-
-interface ProgressData {
-  session_id: string
-  stage: string
-  progress: number
-  message: string
-  current_module?: number
-  total_modules?: number
-  data?: any
-  timestamp: number
-}
-
-export default function CoursePage() {
-  const [topic, setTopic] = useState('')
-  const [imagesPerModule, setImagesPerModule] = useState(1)
-  const [videosPerModule, setVideosPerModule] = useState(1)
-  const [isCreating, setIsCreating] = useState(false)
-  const [progress, setProgress] = useState<ProgressData | null>(null)
-  const [modules, setModules] = useState<CourseModule[]>([])
-  const [selectedModule, setSelectedModule] = useState<CourseModule | null>(null)
-  const [sessionId, setSessionId] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [courses, setCourses] = useState<CourseModule[]>([])
-  const [progressMessages, setProgressMessages] = useState<ProgressData[]>([])
-  const [activeTab, setActiveTab] = useState<'create' | 'modules' | 'courses'>('create')
-  
-  const wsRef = useRef<WebSocket | null>(null)
-  const progressRef = useRef<HTMLDivElement>(null)
-
-  // Load existing courses on component mount
-  useEffect(() => {
-    fetchCourses()
-  }, [])
-
-  // Auto-scroll progress messages
-  useEffect(() => {
-    if (progressRef.current) {
-      progressRef.current.scrollTop = progressRef.current.scrollHeight
-    }
-  }, [progressMessages])
-
-  const fetchCourses = async () => {
-    try {
-      const response = await fetch('http://localhost:8000/api/courses')
-      if (!response.ok) throw new Error('Failed to fetch courses')
-      const data = await response.json()
-      setCourses(data.courses)
-    } catch (err) {
-      console.error('Error fetching courses:', err)
-      setError('Failed to load existing courses')
-    }
-  }
-
-  const connectWebSocket = (sessionId: string) => {
-    const ws = new WebSocket(`ws://localhost:8000/ws/${sessionId}`)
-    wsRef.current = ws
-
-    ws.onopen = () => {
-      console.log('WebSocket connected')
-      setError(null)
-    }
-
-    ws.onmessage = (event) => {
-      const data: ProgressData = JSON.parse(event.data)
-      setProgress(data)
-      
-      // Add to progress messages
-      setProgressMessages(prev => [...prev, data])
-
-      // Handle completed modules
-      if (data.stage === 'module_complete' || data.stage === 'module_enhanced') {
-        if (data.data) {
-          setModules(prev => {
-            const existingIndex = prev.findIndex(m => m.filename === data.data.filename)
-            if (existingIndex >= 0) {
-              // Update existing module
-              const updated = [...prev]
-              updated[existingIndex] = data.data
-              return updated
-            } else {
-              // Add new module
-              return [...prev, data.data].sort((a, b) => a.module_number - b.module_number)
-            }
-          })
-          
-          // Auto-switch to modules tab when first module is ready
-          if (data.stage === 'module_complete' && modules.length === 0) {
-            setActiveTab('modules')
-          }
-        }
-      }
-
-      // Handle completion
-      if (data.stage === 'complete') {
-        setIsCreating(false)
-        fetchCourses() // Refresh course list
-        setActiveTab('courses')
-      }
-
-      // Handle errors
-      if (data.stage === 'error') {
-        setError(data.message)
-      }
-    }
-
-    ws.onclose = () => {
-      console.log('WebSocket disconnected')
-    }
-
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error)
-      setError('WebSocket connection error occurred')
-    }
-  }
-
-  const startCourseCreation = async () => {
-    if (!topic.trim()) {
-      setError('Please enter a course topic')
-      return
-    }
-
-    setError(null)
-    setIsCreating(true)
-    setProgress(null)
-    setModules([])
-    setSelectedModule(null)
-    setProgressMessages([])
-    setActiveTab('create')
-
-    try {
-      const response = await fetch('http://localhost:8000/api/create-course', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          topic,
-          images_per_module: imagesPerModule,
-          videos_per_module: videosPerModule,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to start course creation')
-      }
-
-      const data = await response.json()
-      setSessionId(data.session_id)
-      connectWebSocket(data.session_id)
-    } catch (err) {
-      setError('Failed to start course creation')
-      setIsCreating(false)
-    }
-  }
-
-  const stopCourseCreation = () => {
-    if (wsRef.current) {
-      wsRef.current.close()
-    }
-    setIsCreating(false)
-    setProgress(null)
-  }
-
-  const loadExistingCourse = async (filename: string) => {
-    try {
-      const response = await fetch(`http://localhost:8000/api/course/${filename}`)
-      if (!response.ok) throw new Error('Failed to load course')
-      const data = await response.json()
-      setSelectedModule(data)
-    } catch (err) {
-      setError('Failed to load course content')
-    }
-  }
-
-  const getProgressColor = (stage: string) => {
-    switch (stage) {
-      case 'starting':
-      case 'structure':
-        return 'from-blue-500 to-blue-600'
-      case 'keywords':
-        return 'from-purple-500 to-purple-600'
-      case 'media':
-        return 'from-green-500 to-green-600'
-      case 'content':
-        return 'from-yellow-500 to-yellow-600'
-      case 'enhancement':
-        return 'from-orange-500 to-orange-600'
-      case 'complete':
-        return 'from-emerald-500 to-emerald-600'
-      case 'error':
-        return 'from-red-500 to-red-600'
-      default:
-        return 'from-gray-500 to-gray-600'
-    }
-  }
-
-  const getStageIcon = (stage: string) => {
-    switch (stage) {
-      case 'starting':
-      case 'structure':
-        return '🚀'
-      case 'keywords':
-        return '🔍'
-      case 'media':
-        return '🎬'
-      case 'content':
-        return '✍️'
-      case 'enhancement':
-        return '✨'
-      case 'complete':
-        return '✅'
-      case 'error':
-        return '❌'
-      default:
-        return '⚡'
-    }
-  }
-
-  const clearError = () => setError(null)
-
+export default function WelcomePage() {
   return (
-    <div className="min-h-screen bg-black">
-      {/* Animated background */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl animate-pulse delay-500"></div>
-      </div>
-
+    <div className="min-h-screen bg-[#0c0c1d] text-gray-100">
       {/* Header */}
-      <div className="relative z-10 glass border-b border-gray-800">
+      <header className="border-b border-gray-800 bg-[#0a0a1a]/80 backdrop-blur-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-20">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center space-x-2">
+              <Sparkles className="h-6 w-6 text-orange-500" />
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-orange-400 to-purple-500 bg-clip-text text-transparent">
+                CourseAI
+              </h1>
+            </div>
+            <div className="hidden md:flex space-x-6">
+              <Link href="/features" className="text-sm text-gray-300 hover:text-white">Features</Link>
+              <Link href="/use-cases" className="text-sm text-gray-300 hover:text-white">Use Cases</Link>
+              <Link href="/docs" className="text-sm text-gray-300 hover:text-white">Docs</Link>
+              <Link href="/pricing" className="text-sm text-gray-300 hover:text-white">Pricing</Link>
+            </div>
             <div className="flex items-center space-x-4">
-              <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center">
-                <span className="text-white font-bold text-xl">🎓</span>
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                  Course Creator
+              <Link href="/login" className="text-sm text-gray-300 hover:text-white">Sign in</Link>
+              <Link
+                href="/dashboard"
+                className="bg-gradient-to-r from-orange-500 to-pink-500 text-white py-2 px-4 rounded-md text-sm font-medium hover:from-orange-600 hover:to-pink-600 transition-all duration-200"
+              >
+                Get Started
+              </Link>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main>
+        {/* Hero Section */}
+        <section className="py-20 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+          <div className="absolute inset-0 z-0">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#0c0c1d] via-[#1a103a] to-[#0c0c1d] opacity-90"></div>
+            <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] opacity-10"></div>
+          </div>
+
+          <div className="max-w-7xl mx-auto relative z-10">
+            <div className="flex flex-col lg:flex-row items-center justify-between">
+              <div className="lg:w-1/2 mb-12 lg:mb-0">
+                <h1 className="text-4xl md:text-6xl font-bold mb-6">
+                  <span className="bg-gradient-to-r from-orange-400 to-purple-500 bg-clip-text text-transparent">
+                    AI-powered education
+                  </span>
+                  <br />
+                  <span className="text-white">
+                    and expert mentorship
+                  </span>
                 </h1>
-                <p className="text-sm text-gray-400">AI-Powered Course Generation</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2 text-sm text-gray-400">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span>System Online</span>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      {/* Error Banner */}
-      {error && (
-        <div className="relative z-10 bg-gradient-to-r from-red-500/20 to-red-600/20 border border-red-500/30 backdrop-blur-sm">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
-                  <span className="text-white text-sm">!</span>
-                </div>
-                <span className="text-red-200">{error}</span>
-              </div>
-              <button
-                onClick={clearError}
-                className="text-red-300 hover:text-red-100 transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+                <p className="text-xl text-gray-300 mb-8 max-w-2xl">
+                  Create comprehensive courses with AI-generated content, images, and videos.
+                  Connect with expert mentors for personalized guidance and skill testing. Your complete learning ecosystem.
+                </p>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Tab Navigation */}
-        <div className="mb-8">
-          <nav className="flex space-x-1 bg-gray-900/50 p-1 rounded-xl backdrop-blur-sm border border-gray-800">
-            {[
-              { id: 'create', label: 'Create Course', icon: '🚀' },
-              { id: 'modules', label: `Current Modules (${modules.length})`, icon: '📚' },
-              { id: 'courses', label: `All Courses (${courses.length})`, icon: '🎓' }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center space-x-2 px-6 py-3 rounded-lg font-medium text-sm transition-all duration-200 ${
-                  activeTab === tab.id
-                    ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
-                }`}
-              >
-                <span>{tab.icon}</span>
-                <span>{tab.label}</span>
-              </button>
-            ))}
-          </nav>
-        </div>
-
-        {/* Tab Content */}
-        {activeTab === 'create' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Course Creation Form */}
-            <div className="glass rounded-2xl p-8 hover-lift">
-              <div className="flex items-center space-x-3 mb-6">
-                <div className="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center">
-                  <span className="text-white text-sm">✨</span>
-                </div>
-                <h2 className="text-xl font-semibold text-white">Create New Course</h2>
-              </div>
-              
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-3">
-                    Course Topic
-                  </label>
-                  <input
-                    type="text"
-                    value={topic}
-                    onChange={(e) => setTopic(e.target.value)}
-                    placeholder="Enter course topic..."
-                    className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all backdrop-blur-sm"
-                    disabled={isCreating}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-3">
-                      Images per Module
-                    </label>
-                    <input
-                      type="number"
-                      value={imagesPerModule}
-                      onChange={(e) => setImagesPerModule(Number(e.target.value))}
-                      min="1"
-                      max="5"
-                      className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all backdrop-blur-sm"
-                      disabled={isCreating}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-3">
-                      Videos per Module
-                    </label>
-                    <input
-                      type="number"
-                      value={videosPerModule}
-                      onChange={(e) => setVideosPerModule(Number(e.target.value))}
-                      min="1"
-                      max="5"
-                      className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all backdrop-blur-sm"
-                      disabled={isCreating}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex space-x-3">
-                  <button
-                    onClick={startCourseCreation}
-                    disabled={isCreating || !topic.trim()}
-                    className="flex-1 gradient-primary text-white py-3 px-6 rounded-xl font-medium hover:shadow-lg hover:shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105 disabled:hover:scale-100"
+                <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
+                  <Link
+                    href="/dashboard"
+                    className="bg-gradient-to-r from-orange-500 to-pink-500 text-white py-3 px-8 rounded-lg font-medium shadow-lg hover:from-orange-600 hover:to-pink-600 transition-all duration-200 flex items-center justify-center group"
                   >
-                    {isCreating ? (
-                      <span className="flex items-center justify-center space-x-2">
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        <span>Creating...</span>
-                      </span>
-                    ) : (
-                      'Create Course'
-                    )}
-                  </button>
-                  {isCreating && (
-                    <button
-                      onClick={stopCourseCreation}
-                      className="bg-red-600 hover:bg-red-700 text-white py-3 px-6 rounded-xl font-medium transition-all duration-200 transform hover:scale-105"
-                    >
-                      Stop
-                    </button>
-                  )}
+                    Create AI Courses
+                    <ChevronRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </Link>
+
+                  <Link
+                    href="https://temp-psi-jet.vercel.app/dashboard"
+                    className="bg-[#1a103a] text-gray-200 border border-purple-700/50 py-3 px-8 rounded-lg font-medium hover:bg-[#251352] transition-all duration-200 flex items-center justify-center"
+                  >
+                    Find Mentors
+                  </Link>
+                </div>
+              </div>
+
+              <div className="lg:w-1/2 relative">
+                <div className="relative">
+                  <div className="absolute -inset-0.5 bg-gradient-to-r from-orange-500 to-purple-500 rounded-lg opacity-75 blur-lg"></div>
+                  <div className="relative bg-[#0c0c1d] rounded-lg p-1">
+                    <img
+                      src="/course-preview.png"
+                      alt="CourseAI Preview"
+                      className="rounded-lg shadow-2xl"
+                      onError={(e) => {
+                        e.currentTarget.src = 'https://placehold.co/600x400/1a103a/ffffff?text=CourseAI+Preview';
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
+          </div>
+        </section>
 
-            {/* Progress Section */}
-            <div className="glass rounded-2xl p-8 hover-lift">
-              <div className="flex items-center space-x-3 mb-6">
-                <div className="w-8 h-8 gradient-secondary rounded-lg flex items-center justify-center">
-                  <span className="text-white text-sm">📊</span>
-                </div>
-                <h3 className="text-xl font-semibold text-white">Creation Progress</h3>
+        {/* Second Section - Revolutionizing Education */}
+        <section className="py-20 px-4 sm:px-6 lg:px-8 bg-[#0a0a1a]">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-orange-400 to-purple-500 bg-clip-text text-transparent">
+                Complete learning ecosystem in one platform
+              </h2>
+              <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+                Generate AI-powered courses with rich media content, then connect with expert mentors for personalized guidance. From content creation to skill mastery.
+              </p>
+              <div className="mt-4 text-gray-400">
+                Skeptical? <Link href="/demo" className="text-orange-400 hover:underline">Try it out</Link>, and see for yourself.
               </div>
-              
-              {isCreating && progress && (
-                <div className="space-y-6">
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center space-x-2">
-                        <span className="text-2xl">{getStageIcon(progress.stage)}</span>
-                        <span className="text-gray-300 capitalize font-medium">
-                          {progress.stage.replace('_', ' ')}
-                        </span>
-                      </div>
-                      <span className="text-white font-bold text-lg">{progress.progress}%</span>
-                    </div>
-                    <div className="w-full bg-gray-800 rounded-full h-3 overflow-hidden">
-                      <div
-                        className={`h-3 rounded-full bg-gradient-to-r ${getProgressColor(progress.stage)} progress-bar transition-all duration-500 ease-out`}
-                        style={{ width: `${progress.progress}%` }}
-                      />
-                    </div>
-                    {progress.current_module && progress.total_modules && (
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-400">
-                          Module {progress.current_module} of {progress.total_modules}
-                        </span>
-                        <span className="text-blue-400 font-medium">
-                          {Math.round((progress.current_module / progress.total_modules) * 100)}% Complete
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+            </div>
 
-              {/* Progress Messages */}
-              <div className="mt-6">
-                <h4 className="text-sm font-medium text-gray-300 mb-3 flex items-center space-x-2">
-                  <span>📝</span>
-                  <span>Progress Log</span>
-                </h4>
-                <div 
-                  ref={progressRef}
-                  className="bg-gray-900/30 rounded-xl p-4 h-64 overflow-y-auto border border-gray-800 backdrop-blur-sm"
+            <div className="mt-12 flex justify-center">
+              <Link
+                href="/dashboard"
+                className="bg-gradient-to-r from-orange-500 to-pink-500 text-white py-3 px-8 rounded-lg font-medium shadow-lg hover:from-orange-600 hover:to-pink-600 transition-all duration-200"
+              >
+                Start building
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* Third Section - AI Working in Education */}
+        <section className="py-20 px-4 sm:px-6 lg:px-8 bg-[#0c0c1d]">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-12">
+              <h2 className="text-4xl font-bold mb-4">
+                <span className="text-gray-200">Two powerful systems</span>
+                <br />
+                <span className="bg-gradient-to-r from-orange-400 to-pink-500 bg-clip-text text-transparent">
+                  working together
+                </span>
+              </h2>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-16">
+              <div className="bg-[#1a103a]/50 rounded-xl p-8 border border-purple-900/50">
+                <h3 className="text-2xl font-bold text-white mb-4">
+                  CourseAI: Intelligent Content Creation
+                </h3>
+                <p className="text-gray-300 mb-6">
+                  Generate comprehensive courses with AI-powered content creation.
+                  Automatically embed relevant images, YouTube videos, and structured learning modules in minutes.
+                </p>
+                <Link
+                  href="/dashboard"
+                  className="inline-flex items-center text-blue-400 hover:text-blue-300"
                 >
-                  {progressMessages.length === 0 ? (
-                    <div className="flex items-center justify-center h-full text-gray-500 italic">
-                      <div className="text-center">
-                        <div className="text-3xl mb-2">⏳</div>
-                        <div>{isCreating ? 'Waiting for updates...' : 'No active course creation'}</div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {progressMessages.map((msg, index) => (
-                        <div key={index} className="group">
-                          <div className="flex items-start space-x-3">
-                            <div className={`w-3 h-3 rounded-full flex-shrink-0 mt-1 bg-gradient-to-r ${getProgressColor(msg.stage)}`} />
-                            <div className="flex-1">
-                              <div className="text-gray-300 text-sm">{msg.message}</div>
-                              <div className="text-xs text-gray-500 mt-1">
-                                {new Date(msg.timestamp * 1000).toLocaleTimeString()}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  Create Course <ChevronRight className="ml-1 h-4 w-4" />
+                </Link>
+
+                <div className="mt-8 space-y-2 text-sm text-gray-400">
+                  <div className="flex items-center">
+                    <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                    <span>15 structured modules per course</span>
+                  </div>
+                  <div className="flex items-center">
+                    <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                    <span>Auto-embedded images and videos</span>
+                  </div>
+                  <div className="flex items-center">
+                    <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                    <span>3+ hours of learning content</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-[#1a103a]/50 rounded-xl p-8 border border-purple-900/50">
+                <h3 className="text-2xl font-bold text-white mb-4">
+                  Mentor-Test: Expert Guidance & Assessment
+                </h3>
+                <p className="text-gray-300 mb-6">
+                  Connect with verified mentors for personalized sessions, skill assessments, and career guidance.
+                  Book sessions, track progress, and get expert feedback on your learning journey.
+                </p>
+
+                <div className="mt-8 bg-[#0c0c1d] rounded-lg p-4 border border-gray-800">
+                  <div className="text-sm text-gray-300 mb-2">
+                    <span className="text-orange-400">Session Type:</span> 1-on-1 Mentorship Session
+                  </div>
+                  <div className="text-sm text-gray-300 mb-4">
+                    <span className="text-purple-400">Available:</span> Video calls, chat sessions, skill assessments, and progress tracking with calendar integration.
+                  </div>
+
+                  <div className="text-xs text-gray-500">
+                    Verified mentors with ratings and reviews
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        )}
+        </section>
 
-        {activeTab === 'modules' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Module List */}
-            <div className="glass rounded-2xl p-8 hover-lift">
-              <div className="flex items-center space-x-3 mb-6">
-                <div className="w-8 h-8 gradient-accent rounded-lg flex items-center justify-center">
-                  <span className="text-white text-sm">📚</span>
+        {/* Fourth Section - Self-hosting */}
+        <section className="py-20 px-4 sm:px-6 lg:px-8 bg-[#0a0a1a]">
+          <div className="max-w-7xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+              <div>
+                <div className="inline-block bg-[#1a103a] rounded-lg px-3 py-1 text-sm text-gray-400 mb-4">
+                  INTEGRATED PLATFORM
                 </div>
-                <h2 className="text-xl font-semibold text-white">Current Session Modules</h2>
-              </div>
-              
-              {modules.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="text-6xl mb-4">📖</div>
-                  <p className="text-gray-400 text-lg mb-2">No modules available</p>
-                  <p className="text-gray-500 text-sm">Create a new course to see modules here</p>
-                </div>
-              ) : (
+                <h2 className="text-3xl font-bold text-white mb-6">
+                  From course creation —<br />
+                  to expert mentorship
+                </h2>
+                <p className="text-gray-300 mb-8">
+                  Create AI-powered courses with rich media content, then connect with expert mentors for personalized guidance.
+                  Complete your learning journey from content to mastery.
+                </p>
+
                 <div className="space-y-4">
-                  {modules.map((module) => (
-                    <div
-                      key={module.filename}
-                      className="bg-gray-900/30 border border-gray-700 rounded-xl p-5 hover:bg-gray-800/50 cursor-pointer transition-all duration-200 hover:border-blue-500/50 hover-lift group"
-                      onClick={() => setSelectedModule(module)}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <h3 className="font-medium text-white group-hover:text-blue-300 transition-colors">
-                            {module.title}
-                          </h3>
-                          <p className="text-sm text-gray-500 mt-1 font-mono">{module.filename}</p>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-xs bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full border border-blue-500/30">
-                            Module {module.module_number}
-                          </span>
-                          {module.enhanced && (
-                            <span className="text-xs bg-green-500/20 text-green-300 px-3 py-1 rounded-full border border-green-500/30">
-                              ✨ Enhanced
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                  <div className="flex items-center">
+                    <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
+                    <span className="text-gray-200">AI-generated courses with media</span>
+                  </div>
+                  <div className="flex items-center">
+                    <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
+                    <span className="text-gray-200">Expert mentor matching system</span>
+                  </div>
+                  <div className="flex items-center">
+                    <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
+                    <span className="text-gray-200">Session booking and progress tracking</span>
+                  </div>
                 </div>
-              )}
-            </div>
-
-            {/* Module Content */}
-            <div className="glass rounded-2xl p-8 hover-lift">
-              <div className="flex items-center space-x-3 mb-6">
-                <div className="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center">
-                  <span className="text-white text-sm">📄</span>
-                </div>
-                <h2 className="text-xl font-semibold text-white">Module Content</h2>
               </div>
-              
-              {selectedModule ? (
-                <div className="space-y-6">
-                  <div className="border-b border-gray-700 pb-4">
-                    <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                      {selectedModule.title}
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-2 font-mono">{selectedModule.filename}</p>
+
+              <div className="relative">
+                <div className="absolute -inset-1 bg-gradient-to-r from-orange-500/20 to-purple-500/20 rounded-lg blur-lg"></div>
+                <div className="relative bg-[#1a103a] rounded-lg p-6 border border-purple-900/50">
+                  <div className="flex items-center mb-4">
+                    <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center mr-3">
+                      <Layers className="h-6 w-6 text-white" />
+                    </div>
+                    <span className="text-lg font-medium text-white">Dual Platform</span>
                   </div>
-                  
-                  <div className="max-h-96 overflow-y-auto prose prose-invert prose-sm max-w-none">
-                    <MarkdownRendererExample content={selectedModule.content} />
+
+                  <p className="text-gray-300 mb-4">
+                    CourseAI creates comprehensive learning materials with embedded media, while Mentor-Test connects you with expert guidance.
+                    Complete learning ecosystem in one platform.
+                  </p>
+
+                  <div className="flex justify-end">
+                    <Link
+                      href="/self-hosting"
+                      className="text-sm text-blue-400 hover:text-blue-300"
+                    >
+                      Learn more
+                    </Link>
                   </div>
                 </div>
-              ) : (
-                <div className="text-center py-12">
-                  <div className="text-6xl mb-4">👆</div>
-                  <p className="text-gray-400">Select a module to view its content</p>
-                </div>
-              )}
+              </div>
             </div>
           </div>
-        )}
+        </section>
 
-        {activeTab === 'courses' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Course List */}
-            <div className="glass rounded-2xl p-8 hover-lift">
-              <div className="flex items-center space-x-3 mb-6">
-                <div className="w-8 h-8 gradient-secondary rounded-lg flex items-center justify-center">
-                  <span className="text-white text-sm">🎓</span>
-                </div>
-                <h2 className="text-xl font-semibold text-white">All Courses</h2>
+        {/* Fifth Section - Automation for Education */}
+        <section className="py-20 px-4 sm:px-6 lg:px-8 bg-[#0c0c1d] relative overflow-hidden">
+          <div className="absolute inset-0 z-0">
+            <div className="absolute inset-0 bg-gradient-radial from-purple-900/20 to-transparent opacity-70"></div>
+            <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] opacity-5"></div>
+          </div>
+
+          <div className="max-w-7xl mx-auto relative z-10">
+            <div className="text-center mb-16">
+              <div className="inline-block bg-gradient-to-r from-orange-500 to-pink-500 rounded-full px-4 py-1 text-sm text-white mb-4">
+                Complete Learning Solution
               </div>
-              
-              {courses.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="text-6xl mb-4">🚀</div>
-                  <p className="text-gray-400 text-lg mb-2">No courses available</p>
-                  <p className="text-gray-500 text-sm">Create your first course to get started</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {courses.map((course) => (
-                    <div
-                      key={course.filename}
-                      className="bg-gray-900/30 border border-gray-700 rounded-xl p-5 hover:bg-gray-800/50 cursor-pointer transition-all duration-200 hover:border-purple-500/50 hover-lift group"
-                      onClick={() => loadExistingCourse(course.filename)}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <h3 className="font-medium text-white group-hover:text-purple-300 transition-colors">
-                            {course.title}
-                          </h3>
-                          <p className="text-sm text-gray-500 mt-1 font-mono">{course.filename}</p>
-                        </div>
-                        <div className="text-xs text-gray-500 bg-gray-800/50 px-3 py-1 rounded-full">
-                          {course.created_at ? new Date(course.created_at * 1000).toLocaleDateString() : 'Unknown date'}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <h2 className="text-4xl md:text-5xl font-bold mb-6 text-white">
+                Learn, create,<br />and get mentored
+              </h2>
+              <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+                Start with AI-generated courses featuring rich media content, then connect with expert mentors for personalized guidance.
+                Your complete learning journey from content creation to skill mastery.
+              </p>
             </div>
 
-            {/* Course Content */}
-            <div className="glass rounded-2xl p-8 hover-lift">
-              <div className="flex items-center space-x-3 mb-6">
-                <div className="w-8 h-8 gradient-accent rounded-lg flex items-center justify-center">
-                  <span className="text-white text-sm">📖</span>
-                </div>
-                <h2 className="text-xl font-semibold text-white">Course Content</h2>
+            <div className="mt-12 flex justify-center">
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Link
+                  href="/dashboard"
+                  className="bg-gradient-to-r from-orange-500 to-pink-500 text-white py-3 px-8 rounded-lg font-medium transition-colors duration-200"
+                >
+                  Try CourseAI
+                </Link>
+                <Link
+                  href="https://temp-psi-jet.vercel.app/dashboard"
+                  className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-8 rounded-lg font-medium transition-colors duration-200"
+                >
+                  Find Mentors
+                </Link>
               </div>
-              
-              {selectedModule ? (
-                <div className="space-y-6">
-                  <div className="border-b border-gray-700 pb-4">
-                    <h3 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-                      {selectedModule.title}
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-2 font-mono">{selectedModule.filename}</p>
-                  </div>
-                  
-                  <div className="max-h-96 overflow-y-auto prose prose-invert prose-sm max-w-none">
-                    <MarkdownRendererExample content={selectedModule.content} />
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <div className="text-6xl mb-4">👆</div>
-                  <p className="text-gray-400">Select a course to view its content</p>
-                </div>
-              )}
             </div>
           </div>
-        )}
-      </div>
+        </section>
+
+        {/* Footer */}
+        <footer className="border-t border-gray-800 bg-[#0a0a1a] py-12">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex flex-col md:flex-row justify-between items-center">
+              <div className="flex items-center space-x-2 mb-4 md:mb-0">
+                <Sparkles className="h-5 w-5 text-orange-500" />
+                <span className="text-lg font-semibold bg-gradient-to-r from-orange-400 to-purple-500 bg-clip-text text-transparent">
+                  CourseAI
+                </span>
+              </div>
+              <div className="text-sm text-gray-500">
+                © {new Date().getFullYear()} CourseAI. All rights reserved.
+              </div>
+            </div>
+          </div>
+        </footer>
+      </main>
     </div>
   )
 }
